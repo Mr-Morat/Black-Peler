@@ -1,0 +1,68 @@
+name: build 
+on:
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+      
+    - name: Prepare timezone 
+      run: |       
+            sudo rm /etc/localtime
+            sudo ln -s /usr/share/zoneinfo/Asia/Jakarta /etc/localtime
+        
+    - name: Install Dependencies
+      run: |
+            sudo apt update -y
+            sudo apt install bc cpio flex bison aptitude git python-is-python3 tar aria2 perl wget curl lz4 -y
+            sudo apt install libssl-dev -y
+        
+    - name: Clone Toolchains
+      run: |
+            mkdir clang && curl  https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/main/clang-r536225.tar.gz -RLO && tar -C clang/ -xvf clang-*.tar.gz
+            git clone --depth=1 https://github.com/LineageOS/android_prebuilts_gcc_linux-x86_aarch64_aarch64-linux-android-4.9 gcc64
+            git clone --depth=1 https://github.com/LineageOS/android_prebuilts_gcc_linux-x86_arm_arm-linux-androideabi-4.9 gcc32
+
+    - name: Setup Environment
+      run: |
+            echo "BUILD_TIME=$(TZ=Asia/Jakarta date "+%d-%m-%Y")" >> $GITHUB_ENV
+            echo "CLANG_PATH=$GITHUB_WORKSPACE/clang" >> $GITHUB_ENV
+            echo "GCC64_PATH=$GITHUB_WORKSPACE/gcc64" >> $GITHUB_ENV
+            echo "GCC32_PATH=$GITHUB_WORKSPACE/gcc32" >> $GITHUB_ENV
+        
+    - name: Clone kernelSU-Next
+      run: |
+            curl -LSs "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/next/kernel/setup.sh" | bash -s next
+                                                         
+                                                         
+    - name: Build Kernel
+      run: |
+            export ARCH=arm64
+            export PATH="$CLANG_PATH/bin:$GCC64_PATH/bin:$GCC32_PATH/bin:$PATH"
+            export KBUILD_BUILD_USER=builder
+            export KBUILD_BUILD_HOST=denomsly
+            export KBUILD_COMPILER_STRING="$$CLANG_PATH/clang"
+            make O=out ARCH=arm64 sweet_defconfig 
+            make -j$(nproc --all) O=out \ ARCH=arm64 \ LLVM=1 \ LLVM_IAS=1 \ CC=clang \ CLANG_TRIPLE=$CLANG_PATH/aarch64-linux-gnu- \ CROSS_COMPILE=$GCC64_PATH/bin/aarch64-elf- \ CROSS_COMPILE_ARM32=$GCC32_PATH/bin/arm-eabi-         
+            mv out/.config out/sweet_defconfig.txt
+           
+    - name: Upload configs
+      uses: actions/upload-artifact@v4
+      with:
+        name: configs-${{ env.BUILD_TIME }}
+        path: out/sweet_defconfig.txt
+          
+    - name: Clone Anykernel3
+      run: |
+            git clone --depth=1 https://github.com/agni-prjkt/anykernel3 -b main AnyKernel3 
+            cp out/arch/arm64/boot/Image.gz AnyKernel3/Image.gz
+            cp out/arch/arm64/boot/dtbo.img AnyKernel3/dtbo.img
+            cp out/arch/arm64/boot/dtb.img AnyKernel3/dtb.img
+                    
+    - name: Upload Flashable zip
+      uses: actions/upload-artifact@v4
+      with:
+        name: AGNI-Kernel-AOSP-${{ env.BUILD_TIME }}
+        path: AnyKernel3/*
