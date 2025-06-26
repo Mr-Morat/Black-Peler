@@ -69,6 +69,8 @@ extern int sb_prepare_remount_readonly(struct super_block *);
 
 extern void __init mnt_init(void);
 
+int path_umount(struct path *path, int flags);
+
 extern int __mnt_want_write(struct vfsmount *);
 extern int __mnt_want_write_file(struct file *);
 extern int mnt_want_write_file_path(struct file *);
