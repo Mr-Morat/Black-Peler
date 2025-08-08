@@ -7169,29 +7169,18 @@ void sde_crtc_touch_notify(void)
 		}
 
 		if (dsi_display && dsi_display->is_prim_display && dsi_display->panel
-    && !dsi_display->panel->panel_max_frame_rate) {
-
-    if (dsi_display->panel->dfps_caps.smart_fps_support) {
-        pr_info("[%s] Smart FPS supported, delaying activation...\n", __func__);
-        msleep(8000);
-
-        if (fm_stat.enabled) {
-            pr_info("[%s] Enabling Smart FPS after delay\n", __func__);
-            dsi_display->panel->panel_max_frame_rate = true;
-            calc_fps(0, (int)true);
-        } else {
-            pr_info("[%s] Smart FPS disabled by fm_stat\n", __func__);
-        }
-    } else {
-        pr_info("[%s] Smart FPS not supported by panel, using fallback\n", __func__);
-        event.type = DRM_EVENT_TOUCH;
-        event.length = sizeof(u32);
-        msm_mode_object_event_notify(&gcrtc->base, gcrtc->dev,
-            &event, (u8 *)&ret);
-    }
-
-    gcrtc = NULL;
-}
+			&& !dsi_display->panel->panel_max_frame_rate) {
+			if (dsi_display->panel->dfps_caps.smart_fps_support && fm_stat.enabled) {
+				dsi_display->panel->panel_max_frame_rate = true;
+				calc_fps(0, (int)true);
+			} else {
+				event.type = DRM_EVENT_TOUCH;
+				event.length = sizeof(u32);
+				msm_mode_object_event_notify(&gcrtc->base, gcrtc->dev,
+					&event, (u8 *)&ret);
+			}
+			gcrtc = NULL;
+		}
 	}
 }
 EXPORT_SYMBOL(sde_crtc_touch_notify);
