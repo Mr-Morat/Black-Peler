@@ -4,84 +4,68 @@ on:
 
 jobs:
   build:
-    name: Build Kernel
     runs-on: ubuntu-latest
 
-    env:
-      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-
     steps:
-    - name: Checkout Code
+    - name: 🔄 Checkout Code
       uses: actions/checkout@v4
-
-    - name: Prepare timezone 
+      
+    - name: ⏰ Prepare timezone
       run: |
-            sudo rm /etc/localtime
-            sudo ln -s /usr/share/zoneinfo/Asia/Jakarta /etc/localtime
-
-    - name: Install Dependencies
+        sudo rm /etc/localtime
+        sudo ln -s /usr/share/zoneinfo/Asia/Jakarta /etc/localtime
+        
+    - name: 📦 Install Dependencies
       run: |
-            sudo apt update -y
-            sudo apt install bc cpio flex bison aptitude git python-is-python3 tar aria2 perl wget curl lz4 -y
-            sudo apt install libssl-dev -y
-
-    - name: Clone Toolchains
+        sudo apt update -y
+        sudo apt install bc cpio flex bison aptitude git python-is-python3 tar aria2 perl wget curl lz4 libssl-dev -y
+        
+    - name: 🔧 Clone Toolchains
       run: |
-            mkdir clang && cd clang && curl -LO "https://raw.githubusercontent.com/Neutron-Toolchains/antman/main/antman" && chmod a+x antman && ./antman -S && ./antman --patch=glibc && cd .. && ls
-            git clone https://github.com/greenforce-project/gcc-arm64 -b main --depth=1 gcc64
-            git clone https://github.com/greenforce-project/gcc-arm -b main --depth=1 gcc32
-
-    - name: Setup Environment
+        mkdir clang && cd clang && curl -LO "https://raw.githubusercontent.com/Neutron-Toolchains/antman/main/antman" && chmod a+x antman && ./antman -S && ./antman --patch=glibc && cd ..
+        git clone https://github.com/greenforce-project/gcc-arm64 -b main --depth=1 gcc64
+        git clone https://github.com/greenforce-project/gcc-arm -b main --depth=1 gcc32
+    - name: ⚙️ Setup Environment
       run: |
-            echo "BUILD_TIME=$(TZ=Asia/Jakarta date "+%d%m%Y-%H%M")" >> $GITHUB_ENV
-            echo "CLANG_PATH=$GITHUB_WORKSPACE/clang" >> $GITHUB_ENV
-            echo "GCC64_PATH=$GITHUB_WORKSPACE/gcc64" >> $GITHUB_ENV
-            echo "GCC32_PATH=$GITHUB_WORKSPACE/gcc32" >> $GITHUB_ENV
-
-    - name: Clone kernelSU-Next
+        echo "BUILD_TIME=$(TZ=Asia/Jakarta date '+%d%m%Y-%H%M')" >> $GITHUB_ENV
+        echo "CLANG_PATH=$GITHUB_WORKSPACE/clang" >> $GITHUB_ENV
+        echo "GCC64_PATH=$GITHUB_WORKSPACE/gcc64" >> $GITHUB_ENV
+        echo "GCC32_PATH=$GITHUB_WORKSPACE/gcc32" >> $GITHUB_ENV
+        
+    - name: 📥 Clone kernelSU-Next
+      run: curl -LSs "https://raw.githubusercontent.com/Mr-Morat/KernelSU-Next/susfs/kernel/setup.sh" | bash -s susfs
+      
+    - name: 🛠️ Build Kernel
       run: |
-            curl -LSs "https://raw.githubusercontent.com/Mr-Morat/KernelSU-Next/susfs/kernel/setup.sh" | bash -s susfs
-
-    - name: Build Kernel
-      run: |
-            export ARCH=arm64
-            export PATH="$CLANG_PATH/bin:$GCC64_PATH/bin:$GCC32_PATH/bin:$PATH"
-            export KBUILD_BUILD_USER=user-tobrut
-            export KBUILD_BUILD_HOST=exotic-host
-            export KBUILD_COMPILER_STRING="$$CLANG_PATH/clang"
-            make O=out ARCH=arm64 sweet_defconfig 
-            make -j$(nproc --all) O=out ARCH=arm64 LLVM=1 LLVM_IAS=1 CC=clang \
-              CLANG_TRIPLE=$CLANG_PATH/aarch64-linux-gnu- \
-              CROSS_COMPILE=$GCC64_PATH/bin/aarch64-elf- \
-              CROSS_COMPILE_ARM32=$GCC32_PATH/bin/arm-eabi-         
-            mv out/.config out/sweet_defconfig.txt
-
-    - name: Upload configs
+        export ARCH=arm64
+        export PATH="$CLANG_PATH/bin:$GCC64_PATH/bin:$GCC32_PATH/bin:$PATH"
+        export KBUILD_BUILD_USER=Brutalist
+        export KBUILD_BUILD_HOST=MoratRealm
+        export KBUILD_COMPILER_STRING="$$CLANG_PATH/clang"
+        make O=out ARCH=arm64 sweet_defconfig
+        make -j$(nproc --all) O=out ARCH=arm64 LLVM=1 LLVM_IAS=1 CC=clang \
+          CLANG_TRIPLE=$CLANG_PATH/aarch64-linux-gnu- \
+          CROSS_COMPILE=$GCC64_PATH/bin/aarch64-elf- \
+          CROSS_COMPILE_ARM32=$GCC32_PATH/bin/arm-eabi-
+        mv out/.config out/sweet_defconfig.txt
+        
+    - name: 💾 Upload configs
       uses: actions/upload-artifact@v4
       with:
         name: configs-${{ env.BUILD_TIME }}
         path: out/sweet_defconfig.txt
-
-    - name: Clone Anykernel3
+        
+    - name: 📂 Clone Anykernel3 & Zip
       run: |
-            git clone --depth=1 https://github.com/Mr-Morat/anykernel3 -b main AnyKernel3 
-            cp out/arch/arm64/boot/Image.gz AnyKernel3/Image.gz
-            cp out/arch/arm64/boot/dtbo.img AnyKernel3/dtbo.img
-            cp out/arch/arm64/boot/dtb.img AnyKernel3/dtb.img
-            cd AnyKernel3
-            zip -r "../TobrutExotic-AOSP-${{ env.BUILD_TIME }}.zip" *
-
-    - name: Upload Flashable zip
+        git clone --depth=1 https://github.com/Mr-Morat/anykernel3 -b main AnyKernel3
+        cp out/arch/arm64/boot/Image.gz AnyKernel3/Image.gz
+        cp out/arch/arm64/boot/dtbo.img AnyKernel3/dtbo.img
+        cp out/arch/arm64/boot/dtb.img AnyKernel3/dtb.img
+        cd AnyKernel3
+        zip -r "../TobrutExotic-AOSP-${{ env.BUILD_TIME }}.zip" *
+        
+    - name: 📤 Upload Flashable zip
       uses: actions/upload-artifact@v4
       with:
         name: TobrutExotic-AOSP-${{ env.BUILD_TIME }}
         path: AnyKernel3/*
-
-    - name: Send to Telegram
-      run: |
-          curl -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendDocument" \
-          -F chat_id=${{ secrets.TELEGRAM_CHAT_ID }} \
-          -F message_thread_id=120979 \
-          -F document=@"TobrutExotic-AOSP-${{ env.BUILD_TIME }}.zip" \
-          -F caption=" Last Version is Cumming "
