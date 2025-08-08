@@ -1,0 +1,6 @@
+config EXOTIC_THERMAL
+	tristate "ExoticThermal Adaptive"
+	default y
+	help
+	  Restore big core max frequency if thermal throttling stuck,
+	  with adaptive hysteresis based on temperature.
