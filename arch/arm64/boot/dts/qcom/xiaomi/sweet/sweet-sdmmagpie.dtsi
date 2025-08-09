@@ -1005,18 +1005,16 @@ bq25970-standalone@66 {
 };
 
 &ufshc_mem {
-	/* Line bawaanmu, tetap dipertahankan */
-	vccq2-voltage-level = <1800000 1950000>;
+    vccq2-voltage-level = <1800000 1950000>;
 
-	spm-level = <3>;
-	rpm-level = <3>;
+    spm-level = <3>;
+    rpm-level = <3>;
 
-	/* Tambahan optimasi konsumsi daya */
-	devfreq-min-freq = <100000000>;
-	devfreq-governor = "powersave";
-	qcom,limit-devfreq-on-cpu-scaling;
-	qcom,enable-hs-gear-down;
-	qcom,ufs-idle-timeout = <200>;
-	qcom,ufs-clk-gating-delay-ms = <10>;
-	qcom,disable-lpm-during-suspend = <0>;
+    devfreq-min-freq = <300000000>; 
+    devfreq-governor = "powersave";
+    qcom,limit-devfreq-on-cpu-scaling;
+    qcom,enable-hs-gear-down;
+    qcom,ufs-idle-timeout = <300>;
+    qcom,ufs-clk-gating-delay-ms = <15>;
+    qcom,disable-lpm-during-suspend = <0>;
 };
